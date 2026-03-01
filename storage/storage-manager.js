@@ -56,6 +56,12 @@ export async function saveRecording(recording) {
     startTime: recording.startTime,
     duration: recording.duration,
     title: recording.title ?? `Recording ${new Date(recording.startTime).toLocaleString()}`,
+    // User-editable label (defaults to title until changed)
+    label: recording.label ?? '',
+    // Meeting title captured from DOM by content scripts
+    meetingTitle: recording.meetingTitle ?? '',
+    // User-applied tags e.g. ['interview', 'sales']
+    tags: recording.tags ?? [],
     status: recording.status ?? 'saved',
     // Structured transcript segments: { speaker, text, start, end, confidence }[]
     segments: recording.segments ?? [],

@@ -24,6 +24,7 @@ const state = {
   startTime: null,
   streamId: null,
   offscreenReady: false,
+  meetingTitle: null,  // captured from content script MEETING_DETECTED
 };
 
 // ─── Offscreen Document ───────────────────────────────────────────────────────
@@ -169,7 +170,9 @@ async function stopRecording() {
       duration,
       blob,
       status: 'saved',
+      meetingTitle: state.meetingTitle ?? '',
     });
+    state.meetingTitle = null;
 
     // Kick off transcription asynchronously (does not block the response)
     triggerTranscription(recordingId, buffer, mimeType).catch((err) =>
@@ -190,6 +193,7 @@ function serializeState() {
     tabId: state.tabId,
     platform: state.platform,
     startTime: state.startTime,
+    meetingTitle: state.meetingTitle,
   };
 }
 
@@ -391,6 +395,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ─── Auto-detect & Auto-record ────────────────────────────────────────────────
 
 async function handleMeetingDetected(tab, { platform, meetingTitle, autoRecord }) {
+  // Always cache the title so manual recordings can use it too.
+  if (meetingTitle) state.meetingTitle = meetingTitle;
+
   if (!autoRecord || state.recording) return;
 
   const settings = await chrome.storage.sync.get({ autoRecord: false });

@@ -21,6 +21,7 @@ const recordingsList = document.getElementById('recordings-list');
 const settingsToggle = document.getElementById('settings-toggle');
 const settingsPanel  = document.getElementById('settings-panel');
 const mainPanel      = document.getElementById('main-panel');
+const dashboardBtn   = document.getElementById('dashboard-btn');
 
 // Settings fields
 const sAutoRecord    = document.getElementById('setting-auto-record');
@@ -236,6 +237,12 @@ btnRecord.addEventListener('click', async () => {
   const newState = await sendBg('GET_STATE');
   applyRecordingState(newState ?? {});
   btnRecord.disabled = false;
+});
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+dashboardBtn.addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
 });
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

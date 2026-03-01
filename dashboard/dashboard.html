@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — MeetRecord</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <div class="app">
+
+    <header class="dash-header">
+      <div class="header-left">
+        <div class="logo">
+          <span class="logo-dot"></span>
+          <span>MeetRecord</span>
+        </div>
+        <span class="header-title">Dashboard</span>
+      </div>
+      <div class="header-right">
+        <div class="search-wrap">
+          <span class="search-icon">&#128269;</span>
+          <input
+            type="search"
+            id="search-input"
+            class="search-input"
+            placeholder="Search recordings…"
+            autocomplete="off"
+          />
+        </div>
+        <span class="recording-count" id="recording-count"></span>
+      </div>
+    </header>
+
+    <div class="tag-bar" id="tag-bar" hidden>
+      <!-- Populated by JS -->
+    </div>
+
+    <main id="main">
+      <div id="loading-state" class="center-message">
+        <span class="spinner"></span>
+        <span>Loading recordings…</span>
+      </div>
+
+      <div id="empty-state" class="center-message" hidden>
+        <p class="empty-title">No recordings yet.</p>
+        <p class="empty-sub">Start a recording from the MeetRecord extension popup.</p>
+      </div>
+
+      <div id="no-results" class="center-message" hidden>
+        <p class="empty-title">No results.</p>
+        <p class="empty-sub">Try a different search or clear the tag filter.</p>
+      </div>
+
+      <div id="recordings-list">
+        <!-- Cards populated by JS -->
+      </div>
+    </main>
+
+  </div>
+  <script src="dashboard.js" type="module"></script>
+</body>
+</html>

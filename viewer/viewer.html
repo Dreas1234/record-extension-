@@ -26,6 +26,14 @@
       </div>
     </header>
 
+    <!-- Export toolbar — shown once the recording is loaded -->
+    <div class="export-toolbar" id="export-toolbar" hidden>
+      <span class="export-label">Export:</span>
+      <button class="export-btn" id="btn-export-pdf" disabled>&#8659; PDF</button>
+      <button class="export-btn" id="btn-export-txt" disabled>&#8659; TXT</button>
+      <button class="export-btn" id="btn-export-audio">&#8659; Audio</button>
+    </div>
+
     <main id="transcript-container">
       <div id="loading-state" class="center-message">
         <span class="spinner"></span>
@@ -46,6 +54,9 @@
     </main>
 
   </div>
+
+  <!-- jsPDF must load before the module so window.jspdf is available -->
+  <script src="../lib/jspdf.umd.min.js"></script>
   <script src="viewer.js" type="module"></script>
 </body>
 </html>

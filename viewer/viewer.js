@@ -6,17 +6,22 @@
 
 import { getRecording, updateRecording } from '../storage/storage-manager.js';
 import { formatDuration, formatTimestamp } from '../utils/helpers.js';
+import { getPlatformLabel } from '../utils/platform-detector.js';
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 
-const titleEl       = document.getElementById('recording-title');
-const infoEl        = document.getElementById('recording-info');
-const statusBadge   = document.getElementById('status-badge');
-const loadingState  = document.getElementById('loading-state');
-const errorState    = document.getElementById('error-state');
-const errorText     = document.getElementById('error-text');
-const noTranscript  = document.getElementById('no-transcript');
+const titleEl        = document.getElementById('recording-title');
+const infoEl         = document.getElementById('recording-info');
+const statusBadge    = document.getElementById('status-badge');
+const loadingState   = document.getElementById('loading-state');
+const errorState     = document.getElementById('error-state');
+const errorText      = document.getElementById('error-text');
+const noTranscript   = document.getElementById('no-transcript');
 const transcriptBody = document.getElementById('transcript-body');
+const exportToolbar  = document.getElementById('export-toolbar');
+const btnExportPdf   = document.getElementById('btn-export-pdf');
+const btnExportTxt   = document.getElementById('btn-export-txt');
+const btnExportAudio = document.getElementById('btn-export-audio');
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -179,6 +184,190 @@ async function applyRename(raw, newName, originBtn) {
   });
 }
 
+// ─── Export ───────────────────────────────────────────────────────────────────
+
+// Speaker RGB palette mirrors the CSS palette (used for PDF coloring).
+const SPEAKER_RGB = [
+  [59, 130, 246], [168, 85, 247], [34, 197, 94],  [249, 115, 22],
+  [236, 72, 153], [20, 184, 166], [234, 179, 8],  [239, 68, 68],
+];
+
+function speakerRgb(raw) {
+  const idx = speakerOrder.indexOf(raw);
+  return SPEAKER_RGB[idx % SPEAKER_RGB.length] ?? SPEAKER_RGB[0];
+}
+
+// ── PDF ───────────────────────────────────────────────────────────────────────
+
+function exportPdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const PW = doc.internal.pageSize.getWidth();   // 210
+  const PH = doc.internal.pageSize.getHeight();  // 297
+  const ML = 20, MR = 20, MT = 22, MB = 18;
+  const CW = PW - ML - MR;                       // 170
+
+  let y = MT;
+
+  // ── Logo placeholder ──────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(59, 130, 246);
+  doc.text('MeetRecord', ML, y);
+  y += 10;
+
+  // ── Recording title ───────────────────────────────────────────────
+  const title = recording.label || recording.title || 'Untitled';
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  const titleLines = doc.splitTextToSize(title, CW);
+  doc.text(titleLines, ML, y);
+  y += titleLines.length * 7;
+
+  // ── Meeting title (if distinct) ───────────────────────────────────
+  if (recording.meetingTitle && recording.meetingTitle !== title) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(71, 85, 105);
+    const mtLines = doc.splitTextToSize(recording.meetingTitle, CW);
+    doc.text(mtLines, ML, y);
+    y += mtLines.length * 6;
+  }
+
+  // ── Info line ─────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  const info = [
+    formatTimestamp(recording.startTime),
+    formatDuration(recording.duration ?? 0),
+    getPlatformLabel(recording.platform),
+  ].join('  ·  ');
+  doc.text(info, ML, y);
+  y += 8;
+
+  // ── Divider ───────────────────────────────────────────────────────
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.3);
+  doc.line(ML, y, PW - MR, y);
+  y += 8;
+
+  // ── Transcript turns ──────────────────────────────────────────────
+  const turns = groupIntoTurns(recording.segments);
+
+  for (const turn of turns) {
+    const displayName = resolveSpeaker(turn.speaker).toUpperCase();
+    const [r, g, b] = speakerRgb(turn.speaker);
+
+    // Page break for speaker header
+    if (y + 14 > PH - MB) { doc.addPage(); y = MT; }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(r, g, b);
+    doc.text(displayName, ML, y);
+    y += 5;
+
+    for (const seg of turn.segments) {
+      const lowConf = typeof seg.confidence === 'number' && seg.confidence < 0.80;
+      const segText = `[${formatTime(seg.start)}]  ${seg.text}${lowConf ? '  (?)' : ''}`;
+      const lines = doc.splitTextToSize(segText, CW - 4);
+
+      if (y + lines.length * 4.5 > PH - MB) { doc.addPage(); y = MT; }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.text(lines, ML + 4, y);
+      y += lines.length * 4.5;
+    }
+
+    y += 5; // space between turns
+  }
+
+  // ── Page footer ───────────────────────────────────────────────────
+  const total = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`MeetRecord  ·  Page ${i} of ${total}`, ML, PH - 10);
+  }
+
+  const slug = (recording.label || recording.title || 'transcript').replace(/\W+/g, '_');
+  doc.save(`${slug}_transcript.pdf`);
+}
+
+// ── TXT ───────────────────────────────────────────────────────────────────────
+
+function exportTxt() {
+  const title = recording.label || recording.title || 'Untitled';
+  const sep = '='.repeat(60);
+  const lines = [
+    'MeetRecord Transcript',
+    sep,
+    `Title:    ${title}`,
+  ];
+
+  if (recording.meetingTitle && recording.meetingTitle !== title) {
+    lines.push(`Meeting:  ${recording.meetingTitle}`);
+  }
+
+  lines.push(
+    `Date:     ${formatTimestamp(recording.startTime)}`,
+    `Duration: ${formatDuration(recording.duration ?? 0)}`,
+    `Platform: ${getPlatformLabel(recording.platform)}`,
+    sep,
+    '',
+  );
+
+  const turns = groupIntoTurns(recording.segments);
+  for (const turn of turns) {
+    const displayName = resolveSpeaker(turn.speaker);
+    for (const seg of turn.segments) {
+      const lowConf = typeof seg.confidence === 'number' && seg.confidence < 0.80;
+      lines.push(`${displayName} [${formatTime(seg.start)}]`);
+      lines.push(`${seg.text}${lowConf ? ' (?)' : ''}`);
+      lines.push('');
+    }
+  }
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const slug = (recording.label || recording.title || 'transcript').replace(/\W+/g, '_');
+  a.href     = url;
+  a.download = `${slug}_transcript.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+
+function exportAudio() {
+  if (!recording.blob) {
+    alert('Audio blob is not available for this recording.');
+    return;
+  }
+  const ext  = recording.mimeType?.includes('webm') ? 'webm' : 'mp4';
+  const slug = (recording.label || recording.title || 'recording').replace(/\W+/g, '_');
+  const url  = URL.createObjectURL(recording.blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${slug}.${ext}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Button wiring ─────────────────────────────────────────────────────────────
+
+btnExportPdf.addEventListener('click', exportPdf);
+btnExportTxt.addEventListener('click', exportTxt);
+btnExportAudio.addEventListener('click', exportAudio);
+
 // ─── Loading / error states ───────────────────────────────────────────────────
 
 function showError(msg) {
@@ -233,7 +422,14 @@ async function init() {
 
   hideLoading();
 
-  if (!recording.segments?.length) {
+  // Show export toolbar; enable PDF+TXT only when a transcript exists.
+  exportToolbar.removeAttribute('hidden');
+  const hasTranscript = !!recording.segments?.length;
+  btnExportPdf.disabled = !hasTranscript;
+  btnExportTxt.disabled = !hasTranscript;
+  btnExportAudio.disabled = !recording.blob;
+
+  if (!hasTranscript) {
     noTranscript.removeAttribute('hidden');
     return;
   }

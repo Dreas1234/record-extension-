@@ -33,7 +33,6 @@ function getSupportedMimeType() {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 async function startRecording({ streamId, captureMic = false }) {
-  console.log('[Offscreen] streamId received:', streamId);
   if (mediaRecorder?.state === 'recording') {
     return { success: false, error: 'Already recording' };
   }

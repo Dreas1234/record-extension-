@@ -17,8 +17,6 @@ async function cognitoRequest(region, clientId, target, params) {
   });
 
   const text = await resp.text();
-  console.log('Cognito response:', text);
-
   if (!resp.ok) throw new Error(text);
 
   return JSON.parse(text);
@@ -58,8 +56,6 @@ export async function signIn(email, password) {
     AuthParameters: { USERNAME: email, PASSWORD: password },
   });
 
-  console.log('[Cognito] full response:', JSON.stringify(data));
-
   // Handle first-login password-change challenge (admin-created users).
   let authResult = data.AuthenticationResult;
   if (!authResult && data.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
@@ -68,7 +64,6 @@ export async function signIn(email, password) {
       ChallengeResponses: { USERNAME: email, NEW_PASSWORD: password },
       Session: data.Session,
     });
-    console.log('[Cognito] challenge response:', JSON.stringify(challengeData));
     authResult = challengeData.AuthenticationResult;
   }
 

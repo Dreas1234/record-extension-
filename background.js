@@ -85,7 +85,6 @@ async function startRecording({ tabId, captureMic = false }) {
       });
     });
 
-    console.log('[BG] sending streamId to recorder tab:', captureStreamId);
     const response = await chrome.tabs.sendMessage(state.recorderTabId, {
       type: 'OFFSCREEN_START_RECORDING',
       streamId: captureStreamId,
@@ -366,8 +365,6 @@ async function triggerS3Upload(recordingId) {
       uploadedAt:      Date.now(),
     });
 
-    console.log('[BG] S3 upload complete for', recordingId);
-
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icons/icon48.png',
@@ -411,12 +408,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (type === 'STOP_RECORDING') {
     stopRecording().then(sendResponse);
     return true;
-  }
-
-  if (type === 'RECORDER_DEBUG') {
-    if (message.msg) console.log('[Recorder]', message.msg);
-    else console.log('[Recorder] audio tracks:', message.audioTracks, message.audioStates, '| video tracks:', message.videoTracks);
-    return false;
   }
 
   if (type === 'MEETING_DETECTED') {

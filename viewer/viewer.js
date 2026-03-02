@@ -94,17 +94,9 @@ function renderTurn(turn) {
   const color = speakerColor(turn.speaker);
 
   const segsHtml = turn.segments.map((seg) => {
-    const lowConf = typeof seg.confidence === 'number' && seg.confidence < 0.80;
-    const confPct = typeof seg.confidence === 'number'
-      ? Math.round(seg.confidence * 100)
-      : null;
-    const confBadge = lowConf
-      ? `<span class="conf-warning" title="Low confidence: ${confPct}%">&#9888;</span>`
-      : '';
-
-    return `<div class="segment${lowConf ? ' low-confidence' : ''}">
+    return `<div class="segment">
         <span class="segment-time">${formatTime(seg.start)}</span>
-        <span class="segment-text">${escapeHtml(seg.text)}${confBadge}</span>
+        <span class="segment-text">${escapeHtml(seg.text)}</span>
       </div>`;
   }).join('\n');
 
@@ -269,8 +261,7 @@ function exportPdf() {
     y += 5;
 
     for (const seg of turn.segments) {
-      const lowConf = typeof seg.confidence === 'number' && seg.confidence < 0.80;
-      const segText = `[${formatTime(seg.start)}]  ${seg.text}${lowConf ? '  (?)' : ''}`;
+      const segText = `[${formatTime(seg.start)}]  ${seg.text}`;
       const lines = doc.splitTextToSize(segText, CW - 4);
 
       if (y + lines.length * 4.5 > PH - MB) { doc.addPage(); y = MT; }
@@ -326,9 +317,8 @@ function exportTxt() {
   for (const turn of turns) {
     const displayName = resolveSpeaker(turn.speaker);
     for (const seg of turn.segments) {
-      const lowConf = typeof seg.confidence === 'number' && seg.confidence < 0.80;
       lines.push(`${displayName} [${formatTime(seg.start)}]`);
-      lines.push(`${seg.text}${lowConf ? ' (?)' : ''}`);
+      lines.push(seg.text);
       lines.push('');
     }
   }

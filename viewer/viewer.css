@@ -293,21 +293,6 @@ html, body {
   line-height: 1.6;
 }
 
-/* Low confidence highlight */
-.segment.low-confidence .segment-text {
-  color: color-mix(in srgb, var(--c-text) 75%, var(--c-warning));
-}
-.segment.low-confidence {
-  border-left: 2px solid color-mix(in srgb, var(--c-warning) 50%, transparent);
-  padding-left: 6px;
-}
-
-.conf-warning {
-  font-size: 11px;
-  color: var(--c-warning);
-  margin-left: 4px;
-  cursor: default;
-}
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }

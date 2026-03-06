@@ -95,8 +95,8 @@ document.getElementById('btn-cfg-next').addEventListener('click', async () => {
     cfgError.textContent = 'Backend API URL is required.';
     return;
   }
-  if (!apiBaseUrl.startsWith('https://')) {
-    cfgError.textContent = 'Backend API URL must start with https://';
+  if (!apiBaseUrl.startsWith('https://') && !apiBaseUrl.startsWith('http://')) {
+    cfgError.textContent = 'Backend API URL must start with https:// or http://';
     return;
   }
 

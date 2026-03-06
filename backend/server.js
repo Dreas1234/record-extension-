@@ -149,8 +149,8 @@ app.post('/upload-url', verifyToken, async (req, res) => {
   }
 
   try {
-    const audioKey = `recordings/${recordingId}/audio.webm`;
-    const transcriptKey = `transcripts/${recordingId}.json`;
+    const audioKey = `recordings/${req.user.userId}/${recordingId}.webm`;
+    const transcriptKey = `transcripts/${req.user.userId}/${recordingId}.json`;
 
     const uploadUrl = await getSignedUrl(
       s3,
@@ -217,19 +217,38 @@ app.get('/recordings/list', verifyToken, async (req, res) => {
       })
     );
 
-    return res.json(recordings.filter(Boolean));
+    return res.json(
+      recordings.filter(Boolean).sort((a, b) => new Date(b.date) - new Date(a.date))
+    );
   } catch (err) {
     console.error('[list] Error:', err.message);
     return res.status(500).json({ error: 'Failed to list recordings' });
   }
 });
 
+// Helper: find transcript key across all user prefixes
+async function findTranscriptKey(recordingId) {
+  const listResp = await s3.send(
+    new ListObjectsV2Command({
+      Bucket: S3_BUCKET,
+      Prefix: 'transcripts/',
+    })
+  );
+  const match = (listResp.Contents || []).find((obj) =>
+    obj.Key.endsWith(`/${recordingId}.json`)
+  );
+  return match ? match.Key : null;
+}
+
 // GET /recordings/:recordingId — fetch single transcript
 app.get('/recordings/:recordingId', verifyToken, async (req, res) => {
   const { recordingId } = req.params;
-  const key = `transcripts/${recordingId}.json`;
 
   try {
+    const key = await findTranscriptKey(recordingId);
+    if (!key) {
+      return res.status(404).json({ error: 'Recording not found' });
+    }
     const data = await s3.send(
       new GetObjectCommand({ Bucket: S3_BUCKET, Key: key })
     );
@@ -237,9 +256,6 @@ app.get('/recordings/:recordingId', verifyToken, async (req, res) => {
     const transcript = JSON.parse(body);
     return res.json(transcript);
   } catch (err) {
-    if (err.name === 'NoSuchKey') {
-      return res.status(404).json({ error: 'Recording not found' });
-    }
     console.error('[get] Error:', err.message);
     return res.status(500).json({ error: 'Failed to fetch recording' });
   }
@@ -248,10 +264,14 @@ app.get('/recordings/:recordingId', verifyToken, async (req, res) => {
 // PUT /recordings/:recordingId — update transcript (speakerMap, label)
 app.put('/recordings/:recordingId', verifyToken, async (req, res) => {
   const { recordingId } = req.params;
-  const key = `transcripts/${recordingId}.json`;
   const updates = req.body || {};
 
   try {
+    const key = await findTranscriptKey(recordingId);
+    if (!key) {
+      return res.status(404).json({ error: 'Recording not found' });
+    }
+
     // Fetch existing
     const data = await s3.send(
       new GetObjectCommand({ Bucket: S3_BUCKET, Key: key })
@@ -279,9 +299,6 @@ app.put('/recordings/:recordingId', verifyToken, async (req, res) => {
 
     return res.json({ success: true });
   } catch (err) {
-    if (err.name === 'NoSuchKey') {
-      return res.status(404).json({ error: 'Recording not found' });
-    }
     console.error('[put] Error:', err.message);
     return res.status(500).json({ error: 'Failed to update recording' });
   }
